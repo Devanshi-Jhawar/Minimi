@@ -25,7 +25,7 @@ python -m venv .venv
 
 pip install -r requirements.txt
 
-cp .env.example .env        # then add your ANTHROPIC_API_KEY
+cp .env.example .env        # then add GROQ_API_KEY (and TAVILY_API_KEY)
 python main.py
 ```
 
@@ -49,15 +49,20 @@ All via environment / `.env` (see `.env.example`):
 
 | var | default | meaning |
 |-----|---------|---------|
-| `ANTHROPIC_API_KEY` | – | required |
-| `ANTHROPIC_MODEL` | `claude-sonnet-5-5` | any Claude model id (Haiku = faster) |
-| `TAVILY_API_KEY` | – | optional; uses Tavily instead of DuckDuckGo |
+| `GROQ_API_KEY` | – | required ([console.groq.com](https://console.groq.com)) |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | or `openai/gpt-oss-20b` for speed |
+| `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` | override for a gateway |
+| `TAVILY_API_KEY` | – | recommended; Tavily instead of DuckDuckGo |
+| `MAX_TOOL_ROUNDS` | `4` | safety stop for the tool loop |
 | `RECENT_TURNS` | `12` | live context window size |
 | `RECALL_K` | `4` | how many past turns to recall per question |
 | `SEARCH_CACHE_TTL` | `3600` | search cache lifetime (seconds) |
 
-> If your Anthropic key doesn't have `claude-sonnet-5-5`, set `ANTHROPIC_MODEL`
-> to a model id your account can use.
+> **On keys:** Groq's developer tier is free and rate-limited rather than
+> billed per token, so this runs at no cost. (Note: Groq, the inference
+> provider, is a different company from xAI's Grok — easy to mix up.)
+> Tavily is optional but recommended: the DuckDuckGo fallback rate-limits,
+> which looks like a broken agent when it happens mid-demo.
 
 ## Tests
 
@@ -65,7 +70,10 @@ All via environment / `.env` (see `.env.example`):
 pytest -q
 ```
 
-The memory, recall and timestamp logic is covered with no network or API key.
+The memory, recall and timestamp logic is covered with no network or API key —
+including the case that matters most for the brief: a time-anchored question
+("what did I ask yesterday?") shares no words with the turn it is asking about,
+so it is served from a date window rather than keyword overlap.
 
 ## Layout
 
@@ -74,7 +82,7 @@ chatagent/
   config.py   # env-driven config
   memory.py   # SQLite turns + recall + search cache  (the core)
   search.py   # the single web_search tool (DuckDuckGo / Tavily)
-  agent.py    # Claude loop: stream + tool-use + memory injection
+  agent.py    # model loop: stream + tool-use + memory injection
 main.py       # CLI chat
 tests/        # memory unit tests
 design.md     # architecture & trade-offs
