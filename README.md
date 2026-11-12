@@ -63,53 +63,6 @@ live context is **empty**, so the answer can only come from the stored memory.
 
 ---
 
-## Real transcript
-
-Not a mock-up — this is actual output, trimmed only for width.
-
-```
-you > What is the latest stable version of Python, and when was it released?
-  🔎 searching: latest stable version of Python release date
-bot > The latest stable Python release is Python 3.15.2, which was made
-      available on 25 October 2026.
-
-      Sources:
-      [1] https://www.python.org/downloads/release/python-3152
-      [2] https://en.wikipedia.org/wiki/History_of_Python
-
-you > Explain the difference between a list and a tuple in Python.
-bot > Mutability — List: mutable, you can add, remove or change elements.
-      Tuple: immutable, once created its contents cannot be altered.
-      ...                                              (no search — answered directly)
-```
-
-Then quit, restart the process, and ask:
-
-```
-you > What did I ask you earlier today?
-bot > You asked the following earlier today:
-
-      - [today 13:10] "What is the latest stable version of Python, and when was it released?"
-      - [today 13:10] "Explain the difference between a list and a tuple in Python."
-      - [today 13:11] "What is the latest stable version of Python, and when was it released?"
-
-                                                 (no search — answered from memory, 0.99s)
-```
-
-Note the timestamps are **local** time, and no search was needed to answer a
-question about the conversation's own history.
-
-> **On latency:** Groq's free tier queues under load, so response times vary a
-> lot — the runs above ranged from 1s to ~60s for comparable requests. That is
-> the free tier, not the agent; a warm-up request before any demo helps.
-
----
-
-## Tests
-
-```bash
-pytest -q        # 22 passed
-```
 
 No network and no API key required — everything is faked or local. They cover:
 
