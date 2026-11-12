@@ -13,17 +13,50 @@ and search is kept deliberately lean.
 
 ## Architecture
 
+One turn, end to end. The two branches worth noticing are the **memory split**
+(a time-anchored question needs a different lookup from a topical one) and the
+**search failure path** (a failed search must not reach the model disguised as
+a result).
+
+```mermaid
+flowchart TD
+    U["User message"] --> LOG["Log turn to SQLite<br/>with UTC timestamp"]
+
+    LOG --> T{"Time-anchored<br/>question?"}
+    T -->|"'yesterday', 'last week',<br/>'what have we discussed'"| W["Keyword recall<br/><b>+ date window</b>"]
+    T -->|"topical"| K["Keyword recall<br/>only"]
+
+    W --> B["Build system prompt:<br/>rules + memory block<br/><i>timestamps in local time</i>"]
+    K --> B
+    B --> M["Stream model<br/>Groq · gpt-oss-120b"]
+
+    M --> D{"Tool call?"}
+    D -->|"no"| A["Stream answer<br/>to user"]
+    D -->|"web_search"| C{"In TTL<br/>cache?"}
+
+    C -->|"hit"| R["Results<br/>title · url · snippet"]
+    C -->|"miss"| S["Tavily"]
+    S -->|"ok"| R
+    S -->|"error or empty"| DDG["DuckDuckGo<br/>fallback"]
+    DDG -->|"ok"| R
+    DDG -->|"error or empty"| F["<b>SEARCH FAILED</b> block<br/>'you have verified nothing —<br/>do not answer from training data'"]
+
+    R --> FB["Append tool_result<br/>role=tool, tool_call_id"]
+    F --> FB
+    FB --> LIM{"rounds <<br/>MAX_TOOL_ROUNDS?"}
+    LIM -->|"yes"| M
+    LIM -->|"no"| A
+
+    A --> SAVE["Log assistant turn<br/>trim live window to N"]
+
+    style F fill:#ffe6e6,stroke:#c0392b
+    style W fill:#e8f4ff,stroke:#2b6cb0
+    style K fill:#e8f4ff,stroke:#2b6cb0
 ```
-            ┌──────────────┐   recall(query)      ┌────────────────────┐
-  user ───► │   ChatAgent  │ ───────────────────► │   Memory (SQLite)  │
-            │  (agent loop)│ ◄─── memory block ─── │  turns + cache     │
-            └──────┬───────┘   (what/when asked)   └────────────────────┘
-                   │ one tool
-                   ▼
-            ┌──────────────┐  cache → DuckDuckGo / Tavily
-            │  web_search  │
-            └──────────────┘
-```
+
+Memory is read **before** the model is called and injected into the prompt —
+it is never a tool the model can invoke. That keeps the agent honest about the
+"one tool" constraint, and costs about a millisecond instead of a round trip.
 
 - **`agent.py` — the loop.** Logs the user turn, builds a system prompt with a
   recalled-memory block, then streams the model. If the model emits a tool call for
